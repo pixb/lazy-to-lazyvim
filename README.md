@@ -69,5 +69,4 @@ require("lazy").setup(plugins, opts)
 
 当然这里我们没有安装别的插件，只安装了`lazy.nvim`本身
 
-![](https://taengsic.com/img/20240518222223_111.png)
-
+![](https://taengsic.com/img/20240518222428_image.png)

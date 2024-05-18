@@ -22,3 +22,8 @@ vim.o.relativenumber = true
 ```lua
 vim.api.nvim_set_keymap('i', 'jk', '<ESC>', { noremap = true, silent = true })
 ```
+
+# v2
+
+第二版，这个版本的目标时引入`lazy.nvim`包管理器，但配置仍然只写下`init.lua`配置文件中
+后面再刨析`LazyVim`项目逐步工程化。并学习其中的知识

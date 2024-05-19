@@ -64,9 +64,37 @@ Next step is to add **lazy.nvim** below the code added in the prior step in `
 -- 启动
 require("lazy").setup(plugins, opts)
 ```
-
 输入`:Lazy`即可以看到lazy.nvim的管理界面
 
 当然这里我们没有安装别的插件，只安装了`lazy.nvim`本身
 
 ![](https://taengsic.com/img/20240518222428_image.png)
+
+# v3
+
+第三个版本，开始仿照[LazyVim](https://github.com/LazyVim/LazyVim)结构，逐步细化学习
+
+从[starter](https://github.com/LazyVim/starter)开始
+
+配置的结构如下：
+
+```c
+.
+├── init.lua
+├── LICENSE
+├── lua
+│   ├── config
+│   │   └── lazy.lua
+│   ├── lazyvim
+│   │   └── plugins
+│   │       └── init.lua
+│   └── plugins
+│       └── init.lua
+└── README.md
+```
+
+nvim/init.lua ==> nvim/lua/config.lazy.lua
+
+加载本地插件目录`nvim/lua/plugins/init.lua`
+
+加载lazyvim插件目录`nvim/lua/lazyvim/plugins/init.lua`

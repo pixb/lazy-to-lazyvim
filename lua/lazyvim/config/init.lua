@@ -166,8 +166,30 @@ function M.load(name)
   print("lazyvim.config.init.lua M.load() end===>")
 end
 
+M.did_init = false
 function M.init()
 	print("lua/lazyvim/config/init.lua init() start===>")
+	if M.did_init then
+    		return
+  	end
+  	M.did_init = true
+	local plugin = require("lazy.core.config").spec.plugins.LazyVim
+  	if plugin then
+    		vim.opt.rtp:append(plugin.dir)
+  	end
+	package.preload["lazyvim.plugins.lsp.format"] = function()
+    		Util.deprecate([[require("lazyvim.plugins.lsp.format")]], [[require("lazyvim.util").format]])
+    		return Util.format
+  	end
+
+	-- delay notifications till vim.notify was replaced or after 500ms
+  	require("lazyvim.util").lazy_notify()
+
+	-- load options here, before lazy init while sourcing plugin modules
+	-- this is needed to make sure options will be correctly applied
+	-- after installing missing plugins
+	M.load("options")
+
 	print("lua/lazyvim/config/init.lua init() end<===")
 end
 

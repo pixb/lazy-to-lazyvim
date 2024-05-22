@@ -1,38 +1,26 @@
 # lazy-to-lazyvim
-这个项目用来进行从[lazy.nvim](https://github.com/folke/lazy.nvim)进化到[LazyVim](https://github.com/LazyVim/LazyVim)从而学习如何配置`neovim`
-用分支来记录演进过程
-
+这个项目用来进行从[lazy.nvim](https://github.com/folke/lazy.nvim)进化到[LazyVim](https://github.com/LazyVim/LazyVim)从而学习如何配置`neovim` 用分支来记录演进过程
 # v1
-
 第一版，先加入两个功能一个是显示行号，一个是映射ESC键
 - 行号和相对行号
 - 映射ESC按键
-
 ## 显示行号和相对行号
-
 参考：[使用元访问器](https://github.com/glepnir/nvim-lua-guide-zh#%E4%BD%BF%E7%94%A8%E5%85%83%E8%AE%BF%E9%97%AE%E5%99%A8)
-
 ```lua
 vim.o.number = true
 vim.o.relativenumber = true
 ```
 ## 按键映射
+参考: [定义映射](https://github.com/glepnir/nvim-lua-guide-zh#%E5%AE%9A%E4%B9%89%E6%98%A0%E5%B0%84)
 
-参考: [定义映射](https://github.com/glepnir/nvim-lua-guide-zh#%E5%AE%9A%E4%B9%89%E6%98%A0%E5%B0%84)
 ```lua
 vim.api.nvim_set_keymap('i', 'jk', '<ESC>', { noremap = true, silent = true })
 ```
-
 # v2
-
 第二版，这个版本的目标时引入`lazy.nvim`包管理器，但配置仍然只写下`init.lua`配置文件中
-
 后面再刨析`LazyVim`项目逐步工程化。并学习其中的知识
-
 ## Installation
-[lazy.nvim](https://github.com/folke/lazy.nvim#-installation)
-You can add the following Lua code to your `init.lua` to bootstrap **lazy.nvim**:
-
+[lazy.nvim](https://github.com/folke/lazy.nvim#-installation) You can add the following Lua code to your `init.lua` to bootstrap **lazy.nvim**:
 ```lua
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not (vim.uv or vim.loop).fs_stat(lazypath) then
@@ -47,16 +35,18 @@ if not (vim.uv or vim.loop).fs_stat(lazypath) then
 end
 vim.opt.rtp:prepend(lazypath)
 ```
+
 上面配置的解读：
+
 - 获取数据路径拼接lazy存储路径，参考[[stdpath()]]
 - 路径不存在，则clone，`lazy.nvim`
-	- 参考:[[vim.uv]]
-	- 参考:[[vim.loop]]
-	- 参考:[[vim.fn]]
-	- 参考:[[vim.fn.system()]]
+    - 参考:[[vim.uv]]
+    - 参考:[[vim.loop]]
+    - 参考:[[vim.fn]]
+    - 参考:[[vim.fn.system()]]
 - 设置运行时路径
-	- 参考:[[vim_runtimepath]]
-	- 参考:[[prepend()]]
+    - 参考:[[vim_runtimepath]]
+    - 参考:[[prepend()]]
 
 Next step is to add **lazy.nvim** below the code added in the prior step in `init.lua`:
 
@@ -64,20 +54,16 @@ Next step is to add **lazy.nvim** below the code added in the prior step in `
 -- 启动
 require("lazy").setup(plugins, opts)
 ```
+
 输入`:Lazy`即可以看到lazy.nvim的管理界面
 
 当然这里我们没有安装别的插件，只安装了`lazy.nvim`本身
 
-![](https://taengsic.com/img/20240518222428_image.png)
-
+[![](https://camo.githubusercontent.com/8260c1db0fdc5dbcd4e158198da4efcdd9ea8665807ab8cce9616c4920123f31/68747470733a2f2f7461656e677369632e636f6d2f696d672f32303234303531383232323432385f696d6167652e706e67)](https://camo.githubusercontent.com/8260c1db0fdc5dbcd4e158198da4efcdd9ea8665807ab8cce9616c4920123f31/68747470733a2f2f7461656e677369632e636f6d2f696d672f32303234303531383232323432385f696d6167652e706e67)
 # v3
-
 第三个版本，开始仿照[LazyVim](https://github.com/LazyVim/LazyVim)结构，逐步细化学习
-
 从[starter](https://github.com/LazyVim/starter)开始
-
 配置的结构如下：
-
 ```c
 .
 ├── init.lua
@@ -92,7 +78,6 @@ require("lazy").setup(plugins, opts)
 │       └── init.lua
 └── README.md
 ```
-
 nvim/init.lua ==> nvim/lua/config.lazy.lua
 
 加载本地插件目录`nvim/lua/plugins/init.lua`
@@ -419,6 +404,34 @@ function M.load(name)
 end
 ```
 #### autocmds
+### M.json.load()
+加载`json`
+```c
+M.json = {
+  version = 2,
+  data = {
+    version = nil, ---@type string?
+    news = {}, ---@type table<string, string>
+    extras = {}, ---@type string[]
+  },
+}
+
+function M.json.load()
+  local path = vim.fn.stdpath("config") .. "/lazyvim.json"
+  local f = io.open(path, "r")
+  if f then
+    local data = f:read("*a")
+    f:close()
+    local ok, json = pcall(vim.json.decode, data, { luanil = { object = true, array = true } })
+    if ok then
+      M.json.data = vim.tbl_deep_extend("force", M.json.data, json or {})
+      if M.json.data.version ~= M.json.version then
+        Util.json.migrate()
+      end
+    end
+  end
+end
+```
 
 
 ### 元方法`__index`,索引
@@ -638,4 +651,582 @@ setmetatable(M, {
 #### M.try()
 - 调用`M.try()`方法
 	- 调用`lazy.core.util.try()`方法
+### M.notify()
+delay notifications till vim.notify was replaced or after 500ms
+延迟通知直到 vim.notify 被替换或 500 毫秒后
+```c
+-- delay notifications till vim.notify was replaced or after 500ms
+function M.lazy_notify()
+  local notifs = {}
+  local function temp(...)
+    table.insert(notifs, vim.F.pack_len(...))
+  end
 
+  local orig = vim.notify
+  vim.notify = temp
+
+  local timer = vim.loop.new_timer()
+  local check = assert(vim.loop.new_check())
+
+  local replay = function()
+    timer:stop()
+    check:stop()
+    if vim.notify == temp then
+      vim.notify = orig -- put back the original notify if needed
+    end
+    vim.schedule(function()
+      ---@diagnostic disable-next-line: no-unknown
+      for _, notif in ipairs(notifs) do
+        vim.notify(vim.F.unpack_len(notif))
+      end
+    end)
+  end
+
+  -- wait till vim.notify has been replaced
+  check:start(function()
+    if vim.notify ~= temp then
+      replay()
+    end
+  end)
+  -- or if it took more than 500ms, then something went wrong
+  timer:start(500, 0, replay)
+end
+```
+# v5
+`v4`版本也没有详解完，有点晕了，先不细纠了，往上看看
+这个版本完成了基本的加载流程，下个版本开始配置一些插件。
+## nvim/lua/lazyvim/config/init.lua
+初始化
+```c
+M.did_init = false
+function M.init()
+  if M.did_init then
+    return
+  end
+  M.did_init = true
+  local plugin = require("lazy.core.config").spec.plugins.LazyVim
+  if plugin then
+    vim.opt.rtp:append(plugin.dir)
+  end
+
+  package.preload["lazyvim.plugins.lsp.format"] = function()
+    Util.deprecate([[require("lazyvim.plugins.lsp.format")]], [[require("lazyvim.util").format]])
+    return Util.format
+  end
+
+  -- delay notifications till vim.notify was replaced or after 500ms
+  require("lazyvim.util").lazy_notify()
+
+  -- load options here, before lazy init while sourcing plugin modules
+  -- this is needed to make sure options will be correctly applied
+  -- after installing missing plugins
+  M.load("options")
+
+  Util.plugin.setup()
+  M.json.load()
+end
+```
+### 初始化M.init()
+只初始化一次
+```c
+M.did_init = false
+function M.init()
+  if M.did_init then
+    return
+  end
+  M.did_init = true
+end
+```
+插件这个加载目录逻辑，经过测试为`nil`
+```c
+  local plugin = require("lazy.core.config").spec.plugins.LazyVim
+  if plugin then
+    vim.opt.rtp:append(plugin.dir)
+  end
+```
+添加`format`模块
+```c
+  package.preload["lazyvim.plugins.lsp.format"] = function()
+    Util.deprecate([[require("lazyvim.plugins.lsp.format")]], [[require("lazyvim.util").format]])
+    return Util.format
+  end
+```
+延迟通知
+```c
+-- delay notifications till vim.notify was replaced or after 500ms
+  require("lazyvim.util").lazy_notify()
+```
+加载选项
+- 在获取插件模块时在惰性初始化之前加载选项
+- 这是为了确保正确应用选项所必需的
+- 安装缺少的插件后
+```c
+-- load options here, before lazy init while sourcing plugin modules
+-- this is needed to make sure options will be correctly applied
+-- after installing missing plugins
+M.load("options")
+```
+工具类，插件设定setup()
+```c
+Util.plugin.setup()
+```
+加载`json`
+```c
+M.json.load()
+```
+`nvim/lazyvim.json`
+```json
+{
+  "extras": [
+
+  ],
+  "news": {
+    "NEWS.md": "2123"
+  },
+  "version": 2
+}
+```
+## `nvim/lua/lazyvim/config/options.lua`
+选项配置
+```c
+-- This file is automatically loaded by plugins.core
+vim.g.mapleader = " "
+vim.g.maplocalleader = "\\"
+
+-- Enable LazyVim auto format
+vim.g.autoformat = true
+
+-- LazyVim root dir detection
+-- Each entry can be:
+-- * the name of a detector function like `lsp` or `cwd`
+-- * a pattern or array of patterns like `.git` or `lua`.
+-- * a function with signature `function(buf) -> string|string[]`
+vim.g.root_spec = { "lsp", { ".git", "lua" }, "cwd" }
+
+local opt = vim.opt
+
+opt.autowrite = true -- Enable auto write
+opt.clipboard = "unnamedplus" -- Sync with system clipboard
+opt.completeopt = "menu,menuone,noselect"
+opt.conceallevel = 3 -- Hide * markup for bold and italic
+opt.confirm = true -- Confirm to save changes before exiting modified buffer
+opt.cursorline = true -- Enable highlighting of the current line
+opt.expandtab = true -- Use spaces instead of tabs
+opt.formatoptions = "jcroqlnt" -- tcqj
+opt.grepformat = "%f:%l:%c:%m"
+opt.grepprg = "rg --vimgrep"
+opt.ignorecase = true -- Ignore case
+opt.inccommand = "nosplit" -- preview incremental substitute
+opt.laststatus = 3 -- global statusline
+opt.list = true -- Show some invisible characters (tabs...
+opt.mouse = "a" -- Enable mouse mode
+opt.number = true -- Print line number
+opt.pumblend = 10 -- Popup blend
+opt.pumheight = 10 -- Maximum number of entries in a popup
+opt.relativenumber = true -- Relative line numbers
+opt.scrolloff = 4 -- Lines of context
+opt.sessionoptions = { "buffers", "curdir", "tabpages", "winsize", "help", "globals", "skiprtp", "folds" }
+opt.shiftround = true -- Round indent
+opt.shiftwidth = 2 -- Size of an indent
+opt.shortmess:append({ W = true, I = true, c = true, C = true })
+opt.showmode = false -- Dont show mode since we have a statusline
+opt.sidescrolloff = 8 -- Columns of context
+opt.signcolumn = "yes" -- Always show the signcolumn, otherwise it would shift the text each time
+opt.smartcase = true -- Don't ignore case with capitals
+opt.smartindent = true -- Insert indents automatically
+opt.spelllang = { "en" }
+opt.splitbelow = true -- Put new windows below current
+opt.splitkeep = "screen"
+opt.splitright = true -- Put new windows right of current
+opt.tabstop = 2 -- Number of spaces tabs count for
+opt.termguicolors = true -- True color support
+opt.timeoutlen = 300
+opt.undofile = true
+opt.undolevels = 10000
+opt.updatetime = 200 -- Save swap file and trigger CursorHold
+opt.virtualedit = "block" -- Allow cursor to move where there is no text in visual block mode
+opt.wildmode = "longest:full,full" -- Command-line completion mode
+opt.winminwidth = 5 -- Minimum window width
+opt.wrap = false -- Disable line wrap
+opt.fillchars = {
+  foldopen = "",
+  foldclose = "",
+  -- fold = "⸱",
+  fold = " ",
+  foldsep = " ",
+  diff = "╱",
+  eob = " ",
+}
+
+if vim.fn.has("nvim-0.10") == 1 then
+  opt.smoothscroll = true
+end
+
+-- Folding
+vim.opt.foldlevel = 99
+vim.opt.foldtext = "v:lua.require'lazyvim.util'.ui.foldtext()"
+
+if vim.fn.has("nvim-0.9.0") == 1 then
+  vim.opt.statuscolumn = [[%!v:lua.require'lazyvim.util'.ui.statuscolumn()]]
+end
+
+-- HACK: causes freezes on <= 0.9, so only enable on >= 0.10 for now
+if vim.fn.has("nvim-0.10") == 1 then
+  vim.opt.foldmethod = "expr"
+  vim.opt.foldexpr = "v:lua.require'lazyvim.util'.ui.foldexpr()"
+else
+  vim.opt.foldmethod = "indent"
+end
+
+vim.o.formatexpr = "v:lua.require'lazyvim.util'.format.formatexpr()"
+
+-- Fix markdown indentation settings
+vim.g.markdown_recommended_style = 0
+```
+
+## `nvim/lua/lazyvim/util/plugin.lua`
+
+```c
+local Plugin = require("lazy.core.plugin")
+local Util = require("lazyvim.util")
+
+---@class lazyvim.util.plugin
+local M = {}
+
+M.use_lazy_file = true
+M.lazy_file_events = { "BufReadPost", "BufNewFile", "BufWritePre" }
+
+---@type table<string, string>
+M.deprecated_extras = {
+  ["lazyvim.plugins.extras.formatting.conform"] = "`conform.nvim` is now the default **LazyVim** formatter.",
+  ["lazyvim.plugins.extras.linting.nvim-lint"] = "`nvim-lint` is now the default **LazyVim** linter.",
+  ["lazyvim.plugins.extras.ui.dashboard"] = "`dashboard.nvim` is now the default **LazyVim** starter.",
+}
+
+M.deprecated_modules = {
+  ["null-ls"] = "lsp.none-ls",
+  ["nvim-navic.lib"] = "editor.navic",
+  ["nvim-navic"] = "editor.navic",
+}
+
+---@type table<string, string>
+M.renames = {
+  ["windwp/nvim-spectre"] = "nvim-pack/nvim-spectre",
+  ["jose-elias-alvarez/null-ls.nvim"] = "nvimtools/none-ls.nvim",
+  ["null-ls.nvim"] = "none-ls.nvim",
+  ["romgrk/nvim-treesitter-context"] = "nvim-treesitter/nvim-treesitter-context",
+  ["glepnir/dashboard-nvim"] = "nvimdev/dashboard-nvim",
+}
+
+function M.setup()
+  M.fix_imports()
+  M.fix_renames()
+  M.lazy_file()
+  table.insert(package.loaders, function(module)
+    if M.deprecated_modules[module] then
+      Util.warn(
+        ("`%s` is no longer included by default in **LazyVim**.\nPlease install the `%s` extra if you still want to use it."):format(
+          module,
+          M.deprecated_modules[module]
+        ),
+        { title = "LazyVim" }
+      )
+      return function() end
+    end
+  end)
+end
+
+function M.extra_idx(name)
+  local Config = require("lazy.core.config")
+  for i, extra in ipairs(Config.spec.modules) do
+    if extra == "lazyvim.plugins.extras." .. name then
+      return i
+    end
+  end
+end
+
+-- Properly load file based plugins without blocking the UI
+function M.lazy_file()
+  M.use_lazy_file = M.use_lazy_file and vim.fn.argc(-1) > 0
+
+  -- Add support for the LazyFile event
+  local Event = require("lazy.core.handler.event")
+
+  if M.use_lazy_file then
+    -- We'll handle delayed execution of events ourselves
+    Event.mappings.LazyFile = { id = "LazyFile", event = "User", pattern = "LazyFile" }
+    Event.mappings["User LazyFile"] = Event.mappings.LazyFile
+  else
+    -- Don't delay execution of LazyFile events, but let lazy know about the mapping
+    Event.mappings.LazyFile = { id = "LazyFile", event = { "BufReadPost", "BufNewFile", "BufWritePre" } }
+    Event.mappings["User LazyFile"] = Event.mappings.LazyFile
+    return
+  end
+
+  local events = {} ---@type {event: string, buf: number, data?: any}[]
+
+  local done = false
+  local function load()
+    if #events == 0 or done then
+      return
+    end
+    done = true
+    vim.api.nvim_del_augroup_by_name("lazy_file")
+
+    ---@type table<string,string[]>
+    local skips = {}
+    for _, event in ipairs(events) do
+      skips[event.event] = skips[event.event] or Event.get_augroups(event.event)
+    end
+
+    vim.api.nvim_exec_autocmds("User", { pattern = "LazyFile", modeline = false })
+    for _, event in ipairs(events) do
+      if vim.api.nvim_buf_is_valid(event.buf) then
+        Event.trigger({
+          event = event.event,
+          exclude = skips[event.event],
+          data = event.data,
+          buf = event.buf,
+        })
+        if vim.bo[event.buf].filetype then
+          Event.trigger({
+            event = "FileType",
+            buf = event.buf,
+          })
+        end
+      end
+    end
+    vim.api.nvim_exec_autocmds("CursorMoved", { modeline = false })
+    events = {}
+  end
+
+  -- schedule wrap so that nested autocmds are executed
+  -- and the UI can continue rendering without blocking
+  load = vim.schedule_wrap(load)
+
+  vim.api.nvim_create_autocmd(M.lazy_file_events, {
+    group = vim.api.nvim_create_augroup("lazy_file", { clear = true }),
+    callback = function(event)
+      table.insert(events, event)
+      load()
+    end,
+  })
+end
+
+function M.fix_imports()
+  Plugin.Spec.import = Util.inject.args(Plugin.Spec.import, function(_, spec)
+    local dep = M.deprecated_extras[spec and spec.import]
+    if dep then
+      dep = dep .. "\n" .. "Please remove the extra to hide this warning."
+      Util.warn(dep, { title = "LazyVim", once = true, stacktrace = true, stacklevel = 6 })
+      return false
+    end
+  end)
+end
+
+function M.fix_renames()
+  Plugin.Spec.add = Util.inject.args(Plugin.Spec.add, function(self, plugin)
+    if type(plugin) == "table" then
+      if M.renames[plugin[1]] then
+        Util.warn(
+          ("Plugin `%s` was renamed to `%s`.\nPlease update your config for `%s`"):format(
+            plugin[1],
+            M.renames[plugin[1]],
+            self.importing or "LazyVim"
+          ),
+          { title = "LazyVim" }
+        )
+        plugin[1] = M.renames[plugin[1]]
+      end
+    end
+  end)
+end
+
+return M
+```
+
+## `nvim/lua/lazyvim/util/ui.lua`
+```c
+---@class lazyvim.util.ui
+local M = {}
+
+---@alias Sign {name:string, text:string, texthl:string, priority:number}
+
+-- Returns a list of regular and extmark signs sorted by priority (low to high)
+---@return Sign[]
+---@param buf number
+---@param lnum number
+function M.get_signs(buf, lnum)
+  -- Get regular signs
+  ---@type Sign[]
+  local signs = vim.tbl_map(function(sign)
+    ---@type Sign
+    local ret = vim.fn.sign_getdefined(sign.name)[1]
+    ret.priority = sign.priority
+    return ret
+  end, vim.fn.sign_getplaced(buf, { group = "*", lnum = lnum })[1].signs)
+
+  -- Get extmark signs
+  local extmarks = vim.api.nvim_buf_get_extmarks(
+    buf,
+    -1,
+    { lnum - 1, 0 },
+    { lnum - 1, -1 },
+    { details = true, type = "sign" }
+  )
+  for _, extmark in pairs(extmarks) do
+    signs[#signs + 1] = {
+      name = extmark[4].sign_hl_group or "",
+      text = extmark[4].sign_text,
+      texthl = extmark[4].sign_hl_group,
+      priority = extmark[4].priority,
+    }
+  end
+
+  -- Sort by priority
+  table.sort(signs, function(a, b)
+    return (a.priority or 0) < (b.priority or 0)
+  end)
+
+  return signs
+end
+
+---@return Sign?
+---@param buf number
+---@param lnum number
+function M.get_mark(buf, lnum)
+  local marks = vim.fn.getmarklist(buf)
+  vim.list_extend(marks, vim.fn.getmarklist())
+  for _, mark in ipairs(marks) do
+    if mark.pos[1] == buf and mark.pos[2] == lnum and mark.mark:match("[a-zA-Z]") then
+      return { text = mark.mark:sub(2), texthl = "DiagnosticHint" }
+    end
+  end
+end
+
+---@param sign? Sign
+---@param len? number
+function M.icon(sign, len)
+  sign = sign or {}
+  len = len or 2
+  local text = vim.fn.strcharpart(sign.text or "", 0, len) ---@type string
+  text = text .. string.rep(" ", len - vim.fn.strchars(text))
+  return sign.texthl and ("%#" .. sign.texthl .. "#" .. text .. "%*") or text
+end
+
+function M.foldtext()
+  local ok = pcall(vim.treesitter.get_parser, vim.api.nvim_get_current_buf())
+  local ret = ok and vim.treesitter.foldtext and vim.treesitter.foldtext()
+  if not ret or type(ret) == "string" then
+    ret = { { vim.api.nvim_buf_get_lines(0, vim.v.lnum - 1, vim.v.lnum, false)[1], {} } }
+  end
+  table.insert(ret, { " " .. require("lazyvim.config").icons.misc.dots })
+
+  if not vim.treesitter.foldtext then
+    return table.concat(
+      vim.tbl_map(function(line)
+        return line[1]
+      end, ret),
+      " "
+    )
+  end
+  return ret
+end
+
+function M.statuscolumn()
+  local win = vim.g.statusline_winid
+  local buf = vim.api.nvim_win_get_buf(win)
+  local is_file = vim.bo[buf].buftype == ""
+  local show_signs = vim.wo[win].signcolumn ~= "no"
+
+  local components = { "", "", "" } -- left, middle, right
+
+  if show_signs then
+    ---@type Sign?,Sign?,Sign?
+    local left, right, fold
+    for _, s in ipairs(M.get_signs(buf, vim.v.lnum)) do
+      if s.name and s.name:find("GitSign") then
+        right = s
+      else
+        left = s
+      end
+    end
+    if vim.v.virtnum ~= 0 then
+      left = nil
+    end
+    vim.api.nvim_win_call(win, function()
+      if vim.fn.foldclosed(vim.v.lnum) >= 0 then
+        fold = { text = vim.opt.fillchars:get().foldclose or "", texthl = "Folded" }
+      end
+    end)
+    -- Left: mark or non-git sign
+    components[1] = M.icon(M.get_mark(buf, vim.v.lnum) or left)
+    -- Right: fold icon or git sign (only if file)
+    components[3] = is_file and M.icon(fold or right) or ""
+  end
+
+  -- Numbers in Neovim are weird
+  -- They show when either number or relativenumber is true
+  local is_num = vim.wo[win].number
+  local is_relnum = vim.wo[win].relativenumber
+  if (is_num or is_relnum) and vim.v.virtnum == 0 then
+    if vim.v.relnum == 0 then
+      components[2] = is_num and "%l" or "%r" -- the current line
+    else
+      components[2] = is_relnum and "%r" or "%l" -- other lines
+    end
+    components[2] = "%=" .. components[2] .. " " -- right align
+  end
+
+  return table.concat(components, "")
+end
+
+function M.fg(name)
+  ---@type {foreground?:number}?
+  ---@diagnostic disable-next-line: deprecated
+  local hl = vim.api.nvim_get_hl and vim.api.nvim_get_hl(0, { name = name }) or vim.api.nvim_get_hl_by_name(name, true)
+  ---@diagnostic disable-next-line: undefined-field
+  local fg = hl and (hl.fg or hl.foreground)
+  return fg and { fg = string.format("#%06x", fg) } or nil
+end
+
+M.skip_foldexpr = {} ---@type table<number,boolean>
+local skip_check = assert(vim.loop.new_check())
+
+function M.foldexpr()
+  local buf = vim.api.nvim_get_current_buf()
+
+  -- still in the same tick and no parser
+  if M.skip_foldexpr[buf] then
+    return "0"
+  end
+
+  -- don't use treesitter folds for non-file buffers
+  if vim.bo[buf].buftype ~= "" then
+    return "0"
+  end
+
+  -- as long as we don't have a filetype, don't bother
+  -- checking if treesitter is available (it won't)
+  if vim.bo[buf].filetype == "" then
+    return "0"
+  end
+
+  local ok = pcall(vim.treesitter.get_parser, buf)
+
+  if ok then
+    return vim.treesitter.foldexpr()
+  end
+
+  -- no parser available, so mark it as skip
+  -- in the next tick, all skip marks will be reset
+  M.skip_foldexpr[buf] = true
+  skip_check:start(function()
+    M.skip_foldexpr = {}
+    skip_check:stop()
+  end)
+  return "0"
+end
+
+return M
+```

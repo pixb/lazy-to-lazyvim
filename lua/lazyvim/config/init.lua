@@ -162,6 +162,42 @@ function M.setup(opts)
 	if not lazy_autocmds then
 		M.load("autocmds")
 	end
+
+  local group = vim.api.nvim_create_augroup("LazyVim", { clear = true })
+  vim.api.nvim_create_autocmd("User", {
+    group = group,
+    pattern = "VeryLazy",
+    callback = function()
+      if lazy_autocmds then
+        M.load("autocmds")
+      end
+      M.load("keymaps")
+
+      Util.format.setup()
+      Util.news.setup()
+      Util.root.setup()
+
+      vim.api.nvim_create_user_command("LazyExtras", function()
+        Util.extras.show()
+      end, { desc = "Manage LazyVim extras" })
+    end,
+  })
+
+  Util.track("colorscheme")
+  Util.try(function()
+    if type(M.colorscheme) == "function" then
+      M.colorscheme()
+    else
+      vim.cmd.colorscheme(M.colorscheme)
+    end
+  end, {
+    msg = "Could not load your colorscheme",
+    on_error = function(msg)
+      Util.error(msg)
+      vim.cmd.colorscheme("habamax")
+    end,
+  })
+  Util.track()
 	print("lua/lazyvim/config/init.lua setup() end<===")
 end
 

@@ -1,6 +1,10 @@
-local Util = require("lazyvim.util")
+_G.LazyVim = require("lazyvim.util")
+
 ---@class LazyVimConfig: LazyVimOptions
 local M = {}
+
+M.version = "10.21.1" -- x-release-please-version
+LazyVim.config = M
 
 ---@class LazyVimOptions
 local defaults = {
@@ -128,7 +132,7 @@ local defaults = {
 }
 
 M.json = {
-  version = 2,
+  version = 4,
   data = {
     version = nil, ---@type string?
     news = {}, ---@type table<string, string>
@@ -146,22 +150,24 @@ function M.json.load()
     if ok then
       M.json.data = vim.tbl_deep_extend("force", M.json.data, json or {})
       if M.json.data.version ~= M.json.version then
-        Util.json.migrate()
+        LazyVim.json.migrate()
       end
     end
   end
 end
 
+---@type LazyVimOptions
+local options
 
 ---@param opts? LazyVimOptions
 function M.setup(opts)
-	print("lua/lazyvim/config/init.lua setup() start===>")
-	options = vim.tbl_deep_extend("force", defaults, opts or {}) or {}
-	-- autocmds can be loaded lazily when not opening a file
-	local lazy_autocmds = vim.fn.argc(-1) == 0
-	if not lazy_autocmds then
-		M.load("autocmds")
-	end
+  options = vim.tbl_deep_extend("force", defaults, opts or {}) or {}
+
+  -- autocmds can be loaded lazily when not opening a file
+  local lazy_autocmds = vim.fn.argc(-1) == 0
+  if not lazy_autocmds then
+    M.load("autocmds")
+  end
 
   local group = vim.api.nvim_create_augroup("LazyVim", { clear = true })
   vim.api.nvim_create_autocmd("User", {
@@ -173,18 +179,30 @@ function M.setup(opts)
       end
       M.load("keymaps")
 
-      Util.format.setup()
-      Util.news.setup()
-      Util.root.setup()
+      LazyVim.format.setup()
+      LazyVim.news.setup()
+      LazyVim.root.setup()
 
       vim.api.nvim_create_user_command("LazyExtras", function()
-        Util.extras.show()
+        LazyVim.extras.show()
       end, { desc = "Manage LazyVim extras" })
+
+      vim.api.nvim_create_user_command("LazyHealth", function()
+        vim.cmd([[Lazy! load all]])
+        vim.cmd([[checkhealth]])
+      end, { desc = "Load all plugins and run :checkhealth" })
+
+      local health = require("lazy.health")
+      vim.list_extend(health.valid, {
+        "recommended",
+        "desc",
+        "vscode",
+      })
     end,
   })
 
-  Util.track("colorscheme")
-  Util.try(function()
+  LazyVim.track("colorscheme")
+  LazyVim.try(function()
     if type(M.colorscheme) == "function" then
       M.colorscheme()
     else
@@ -193,22 +211,36 @@ function M.setup(opts)
   end, {
     msg = "Could not load your colorscheme",
     on_error = function(msg)
-      Util.error(msg)
+      LazyVim.error(msg)
       vim.cmd.colorscheme("habamax")
     end,
   })
-  Util.track()
-	print("lua/lazyvim/config/init.lua setup() end<===")
+  LazyVim.track()
+end
+
+---@param buf? number
+---@return string[]?
+function M.get_kind_filter(buf)
+  buf = (buf == nil or buf == 0) and vim.api.nvim_get_current_buf() or buf
+  local ft = vim.bo[buf].filetype
+  if M.kind_filter == false then
+    return
+  end
+  if M.kind_filter[ft] == false then
+    return
+  end
+  if type(M.kind_filter[ft]) == "table" then
+    return M.kind_filter[ft]
+  end
+  ---@diagnostic disable-next-line: return-type-mismatch
+  return type(M.kind_filter) == "table" and type(M.kind_filter.default) == "table" and M.kind_filter.default or nil
 end
 
 ---@param name "autocmds" | "options" | "keymaps"
 function M.load(name)
-  print("lazyvim.config.init.lua M.load() start===>")
-  print("\t name:", name)
   local function _load(mod)
-    print("lazyvim.config.init.lua M.load()._load:mod=", mod)	  
     if require("lazy.core.cache").find(mod)[1] then
-      Util.try(function()
+      LazyVim.try(function()
         require(mod)
       end, { msg = "Failed loading " .. mod })
     end
@@ -224,38 +256,38 @@ function M.load(name)
   end
   local pattern = "LazyVim" .. name:sub(1, 1):upper() .. name:sub(2)
   vim.api.nvim_exec_autocmds("User", { pattern = pattern, modeline = false })
-  print("lazyvim.config.init.lua M.load() end===>")
 end
 
 M.did_init = false
 function M.init()
-	print("lua/lazyvim/config/init.lua init() start===>")
-	if M.did_init then
-    		return
-  	end
-  	M.did_init = true
-	local plugin = require("lazy.core.config").spec.plugins.LazyVim
-  	if plugin then
-    		vim.opt.rtp:append(plugin.dir)
-  	end
-	package.preload["lazyvim.plugins.lsp.format"] = function()
-    		Util.deprecate([[require("lazyvim.plugins.lsp.format")]], [[require("lazyvim.util").format]])
-    		return Util.format
-  	end
+  if M.did_init then
+    return
+  end
+  M.did_init = true
+  local plugin = require("lazy.core.config").spec.plugins.LazyVim
+  if plugin then
+    vim.opt.rtp:append(plugin.dir)
+  end
 
-	-- delay notifications till vim.notify was replaced or after 500ms
-  	require("lazyvim.util").lazy_notify()
+  package.preload["lazyvim.plugins.lsp.format"] = function()
+    LazyVim.deprecate([[require("lazyvim.plugins.lsp.format")]], [[LazyVim.format]])
+    return LazyVim.format
+  end
 
-	-- load options here, before lazy init while sourcing plugin modules
-	-- this is needed to make sure options will be correctly applied
-	-- after installing missing plugins
-	M.load("options")
+  -- delay notifications till vim.notify was replaced or after 500ms
+  LazyVim.lazy_notify()
 
-  Util.plugin.setup()
+  -- load options here, before lazy init while sourcing plugin modules
+  -- this is needed to make sure options will be correctly applied
+  -- after installing missing plugins
+  M.load("options")
 
+  if vim.g.deprecation_warnings == false then
+    vim.deprecate = function() end
+  end
+
+  LazyVim.plugin.setup()
   M.json.load()
-
-	print("lua/lazyvim/config/init.lua init() end<===")
 end
 
 setmetatable(M, {

@@ -1,4 +1,19 @@
 local LazyUtil = require("lazy.core.util")
+
+---@class lazyvim.util: LazyUtilCore
+---@field ui lazyvim.util.ui
+---@field lsp lazyvim.util.lsp
+---@field root lazyvim.util.root
+---@field telescope lazyvim.util.telescope
+---@field terminal lazyvim.util.terminal
+---@field toggle lazyvim.util.toggle
+---@field format lazyvim.util.format
+---@field plugin lazyvim.util.plugin
+---@field extras lazyvim.util.extras
+---@field inject lazyvim.util.inject
+---@field news lazyvim.util.news
+---@field json lazyvim.util.json
+---@field lualine lazyvim.util.lualine
 local M = {}
 
 ---@type table<string, string|string[]>
@@ -24,7 +39,7 @@ setmetatable(M, {
       local mod = type(dep) == "table" and dep[1] or dep
       local key = type(dep) == "table" and dep[2] or k
       M.deprecate([[require("lazyvim.util").]] .. k, [[require("lazyvim.util").]] .. mod .. "." .. key)
-      ---@diagnostic disable-next-line: no-unknown
+      ---@diagnostic disable-nsxt-line: no-unknown
       t[mod] = require("lazyvim.util." .. mod) -- load here to prevent loops
       return t[mod][key]
     end
@@ -33,6 +48,34 @@ setmetatable(M, {
     return t[k]
   end,
 })
+
+function M.is_win()
+  return vim.uv.os_uname().sysname:find("Windows") ~= nil
+end
+
+---@param plugin string
+function M.has(plugin)
+  return require("lazy.core.config").spec.plugins[plugin] ~= nil
+end
+
+---@param fn fun()
+function M.on_very_lazy(fn)
+  vim.api.nvim_create_autocmd("User", {
+    pattern = "VeryLazy",
+    callback = function()
+      fn()
+    end,
+  })
+end
+
+function M.deprecate(old, new)
+  M.warn(("`%s` is deprecated. Please use `%s` instead"):format(old, new), {
+    title = "LazyVim",
+    once = true,
+    stacktrace = true,
+    stacklevel = 6,
+  })
+end
 
 -- delay notifications till vim.notify was replaced or after 500ms
 function M.lazy_notify()
@@ -69,6 +112,25 @@ function M.lazy_notify()
   end)
   -- or if it took more than 500ms, then something went wrong
   timer:start(500, 0, replay)
+end
+
+---@param name string
+---@param fn fun(name:string)
+function M.on_load(name, fn)
+  local Config = require("lazy.core.config")
+  if Config.plugins[name] and Config.plugins[name]._.loaded then
+    fn(name)
+  else
+    vim.api.nvim_create_autocmd("User", {
+      pattern = "LazyLoad",
+      callback = function(event)
+        if event.data == name then
+          fn(name)
+          return true
+        end
+      end,
+    })
+  end
 end
 
 -- Wrapper around vim.keymap.set that will

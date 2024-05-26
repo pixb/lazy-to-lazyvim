@@ -156,3 +156,25 @@ icon库
 
 ## [[LazyVim源码分析#plugins#editor.lua]]
 ### [[which-key.nvim]]
+
+# v8
+## [[LazyVim源码分析#plugins#editor.lua]]
+### [[neo-tree.nvim]]文件浏览器
+需要环境`nvim-lua/plenary.nvim`
+这个配置在`plugins/util.lua`中
+
+### [[nvim-spectre]] 搜索替换
+### [[telescope.nvim]] 搜索预览插件
+
+### [[flash.nvim]] 搜索带标签
+### 按键导航[[which-key.nvim]]
+
+### [[gitsigns.nvim]] 装饰git状态
+
+### [[trouble.nvim]] 错误诊断
+
+### [[todo-comments.nvim]] todo工具
+
+## util.lua
+### 函数库[[plenary.nvim]]
+

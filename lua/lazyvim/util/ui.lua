@@ -10,12 +10,19 @@ local M = {}
 function M.get_signs(buf, lnum)
   -- Get regular signs
   ---@type Sign[]
-  local signs = vim.tbl_map(function(sign)
-    ---@type Sign
-    local ret = vim.fn.sign_getdefined(sign.name)[1]
-    ret.priority = sign.priority
-    return ret
-  end, vim.fn.sign_getplaced(buf, { group = "*", lnum = lnum })[1].signs)
+  local signs = {}
+
+  if vim.fn.has("nvim-0.10") == 0 then
+    -- Only needed for Neovim <0.10
+    -- Newer versions include legacy signs in nvim_buf_get_extmarks
+    for _, sign in ipairs(vim.fn.sign_getplaced(buf, { group = "*", lnum = lnum })[1].signs) do
+      local ret = vim.fn.sign_getdefined(sign.name)[1] --[[@as Sign]]
+      if ret then
+        ret.priority = sign.priority
+        signs[#signs + 1] = ret
+      end
+    end
+  end
 
   -- Get extmark signs
   local extmarks = vim.api.nvim_buf_get_extmarks(
@@ -96,7 +103,7 @@ function M.statuscolumn()
     ---@type Sign?,Sign?,Sign?
     local left, right, fold
     for _, s in ipairs(M.get_signs(buf, vim.v.lnum)) do
-      if s.name and s.name:find("GitSign") then
+      if s.name and (s.name:find("GitSign") or s.name:find("MiniDiffSign")) then
         right = s
       else
         left = s
@@ -122,27 +129,49 @@ function M.statuscolumn()
   local is_relnum = vim.wo[win].relativenumber
   if (is_num or is_relnum) and vim.v.virtnum == 0 then
     if vim.v.relnum == 0 then
-      components[2] = is_num and "%l" or "%r" -- the current line
+      components[2] = is_num and "%l" or "%r"    -- the current line
     else
       components[2] = is_relnum and "%r" or "%l" -- other lines
     end
     components[2] = "%=" .. components[2] .. " " -- right align
   end
 
+  if vim.v.virtnum ~= 0 then
+    components[2] = "%= "
+  end
+
   return table.concat(components, "")
 end
 
+---@return {fg?:string}?
 function M.fg(name)
+  local color = M.color(name)
+  return color and { fg = color } or nil
+end
+
+---@param name string
+---@param bg? boolean
+---@return string?
+function M.color(name, bg)
   ---@type {foreground?:number}?
   ---@diagnostic disable-next-line: deprecated
-  local hl = vim.api.nvim_get_hl and vim.api.nvim_get_hl(0, { name = name }) or vim.api.nvim_get_hl_by_name(name, true)
+  local hl = vim.api.nvim_get_hl and vim.api.nvim_get_hl(0, { name = name, link = false })
+      or vim.api.nvim_get_hl_by_name(name, true)
   ---@diagnostic disable-next-line: undefined-field
-  local fg = hl and (hl.fg or hl.foreground)
-  return fg and { fg = string.format("#%06x", fg) } or nil
+  ---@type string?
+  local color = nil
+  if hl then
+    if bg then
+      color = hl.bg or hl.background
+    else
+      color = hl.fg or hl.foreground
+    end
+  end
+  return color and string.format("#%06x", color) or nil
 end
 
 M.skip_foldexpr = {} ---@type table<number,boolean>
-local skip_check = assert(vim.loop.new_check())
+local skip_check = assert(vim.uv.new_check())
 
 function M.foldexpr()
   local buf = vim.api.nvim_get_current_buf()
@@ -177,6 +206,49 @@ function M.foldexpr()
     skip_check:stop()
   end)
   return "0"
+end
+
+---@param buf number?
+function M.bufremove(buf)
+  buf = buf or 0
+  buf = buf == 0 and vim.api.nvim_get_current_buf() or buf
+
+  if vim.bo.modified then
+    local choice = vim.fn.confirm(("Save changes to %q?"):format(vim.fn.bufname()), "&Yes\n&No\n&Cancel")
+    if choice == 0 then -- Cancel
+      return
+    end
+    if choice == 1 then -- Yes
+      vim.cmd.write()
+    end
+  end
+
+  for _, win in ipairs(vim.fn.win_findbuf(buf)) do
+    vim.api.nvim_win_call(win, function()
+      if not vim.api.nvim_win_is_valid(win) or vim.api.nvim_win_get_buf(win) ~= buf then
+        return
+      end
+      -- Try using alternate buffer
+      local alt = vim.fn.bufnr("#")
+      if alt ~= buf and vim.fn.buflisted(alt) == 1 then
+        vim.api.nvim_win_set_buf(win, alt)
+        return
+      end
+
+      -- Try using previous buffer
+      local has_previous = pcall(vim.cmd, "bprevious")
+      if has_previous and buf ~= vim.api.nvim_win_get_buf(win) then
+        return
+      end
+
+      -- Create new listed buffer
+      local new_buf = vim.api.nvim_create_buf(true, false)
+      vim.api.nvim_win_set_buf(win, new_buf)
+    end)
+  end
+  if vim.api.nvim_buf_is_valid(buf) then
+    pcall(vim.cmd, "bdelete! " .. buf)
+  end
 end
 
 return M

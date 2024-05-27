@@ -178,3 +178,29 @@ icon库
 ## util.lua
 ### 函数库[[plenary.nvim]]
 
+
+# v9
+这个版本来配置`lsp`和语言编码相关的插件
+## coding.lua
+### [[nvim-cmp]] 代码自动补全
+需要[[LazyVim源码分析#util#init.lua#M.create_undo()]]
+### [[nvim-snippets]]
+这个需要`neovim > 0.10`
+### 自动括号 [[mini.pairs]]
+### 注释增强 [[ts-comments.nvim]]
+
+### [[mini.ai]] 扩展a/i
+
+## lsp
+
+### [[nvim-lspconfig]] Nvim LSP 的快速入门配置
+### [[neoconf.nvim]] 管理全局，本地设置
+### [[neodev.nvim]] 插件开发文档，提示，自动补全
+
+### [[mason.nvim]] lsp服务管理器
+
+### [[mason-lspconfig.nvim]] 连接mason和lspconfig更容易配置
+
+### [[LazyVim源码分析#util#lsp.lua]]
+
+### [[LazyVim源码分析#plugins#lsp#keymaps.lua]]

@@ -1,11 +1,13 @@
 local LazyUtil = require("lazy.core.util")
 
 ---@class lazyvim.util: LazyUtilCore
+---@field config LazyVimConfig
 ---@field ui lazyvim.util.ui
 ---@field lsp lazyvim.util.lsp
 ---@field root lazyvim.util.root
 ---@field telescope lazyvim.util.telescope
 ---@field terminal lazyvim.util.terminal
+---@field lazygit lazyvim.util.lazygit
 ---@field toggle lazyvim.util.toggle
 ---@field format lazyvim.util.format
 ---@field plugin lazyvim.util.plugin
@@ -14,6 +16,8 @@ local LazyUtil = require("lazy.core.util")
 ---@field news lazyvim.util.news
 ---@field json lazyvim.util.json
 ---@field lualine lazyvim.util.lualine
+---@field mini lazyvim.util.mini
+---@field cmp lazyvim.util.cmp
 local M = {}
 
 ---@type table<string, string|string[]>
@@ -38,8 +42,8 @@ setmetatable(M, {
 		if dep then
 			local mod = type(dep) == "table" and dep[1] or dep
 			local key = type(dep) == "table" and dep[2] or k
-			M.deprecate([[require("lazyvim.util").]] .. k, [[require("lazyvim.util").]] .. mod .. "." .. key)
-			---@diagnostic disable-nsxt-line: no-unknown
+			M.deprecate([[LazyVim.]] .. k, [[LazyVim.]] .. mod .. "." .. key)
+			---@diagnostic disable-next-line: no-unknown
 			t[mod] = require("lazyvim.util." .. mod) -- load here to prevent loops
 			return t[mod][key]
 		end
@@ -97,8 +101,8 @@ function M.lazy_notify()
 	local orig = vim.notify
 	vim.notify = temp
 
-	local timer = vim.loop.new_timer()
-	local check = assert(vim.loop.new_check())
+	local timer = vim.uv.new_timer()
+	local check = assert(vim.uv.new_check())
 
 	local replay = function()
 		timer:stop()
@@ -132,8 +136,7 @@ end
 ---@param name string
 ---@param fn fun(name:string)
 function M.on_load(name, fn)
-	local Config = require("lazy.core.config")
-	if Config.plugins[name] and Config.plugins[name]._.loaded then
+	if M.is_loaded(name) then
 		fn(name)
 	else
 		vim.api.nvim_create_autocmd("User", {
